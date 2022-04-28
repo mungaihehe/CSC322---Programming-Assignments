@@ -1,10 +1,9 @@
 # CSC 322 - Online Shopping
 
-## Instructions
+## Assignment 3
 
-Make an online shopping application (Books, Bikes) that provides the following services:
+Task: Develop a connection oriented client/server application with an Iterative server. Different machines
 
-- [x] DisplayCatalog()
-- [x] searchForItem()
-- [x] purchaseItem()
-- [x] Payment() - via purchaseItem()
+- [x] Connection-Oriented
+- [x] Iterative
+- [x] Different Machines
