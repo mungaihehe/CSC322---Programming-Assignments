@@ -22,7 +22,7 @@ void app(struct Catalog *catalog)
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_flags = AI_PASSIVE;
 	struct addrinfo *bind_address;
 	getaddrinfo(0, "8080", &hints, &bind_address);
@@ -45,68 +45,44 @@ void app(struct Catalog *catalog)
 		return;
 	}
 	freeaddrinfo(bind_address);
-
-	printf("Listening...\n");
-	if (listen(socket_listen, 10) < 0)
-	{
-		fprintf(stderr, "listen() failed. (%d)\n", GETSOCKETERRNO());
-		return;
-	}
+	// no need to call listen() or accept() for UDP
 
 	while (1)
 	{
-		printf("Waiting for connection...\n");
+		printf("Waiting to receive...\n");
 		struct sockaddr_storage client_address;
 		socklen_t client_len = sizeof(client_address);
-		SOCKET socket_client = accept(socket_listen, (struct sockaddr *)&client_address, &client_len);
-		if (!ISVALIDSOCKET(socket_client))
-		{
-			fprintf(stderr, "accept() failed. (%d)\n", GETSOCKETERRNO());
-			return;
-		}
-		printf("Client is connected... ");
+		char request[1024];
+		int bytes_received = recvfrom(socket_listen, request, 1024, 0, (struct sockaddr *)&client_address, &client_len);
+
+		printf("Received %d bytes.\n", bytes_received);
+		printf("%.*s", bytes_received, request);
+
+		printf("Remote address is: ");
 		char address_buffer[100];
-		getnameinfo((struct sockaddr *)&client_address,
-					client_len, address_buffer, sizeof(address_buffer), 0, 0,
-					NI_NUMERICHOST);
-		printf("%s\n", address_buffer);
+		char service_buffer[100];
+		getnameinfo(((struct sockaddr *)&client_address), client_len, address_buffer, sizeof(address_buffer), service_buffer, sizeof(service_buffer), NI_NUMERICHOST | NI_NUMERICSERV);
+		printf("%s %s\n", address_buffer, service_buffer);
 
-		while (1)
+		char args[20][20];
+		split_str(request, ",", args);
+
+		int selection = atoi(args[0]);
+
+		char buf[BUFSIZ];
+		memset(buf, 0, sizeof(buf));
+		fflush(stdout);
+		setbuf(stdout, buf);
+		int code = handler(catalog, selection, args);
+		fflush(stdout);
+		setbuf(stdout, NULL);
+
+		int bytes_sent = sendto(socket_listen, buf, (int)strlen(buf), 0, (const struct sockaddr *)&client_address, sizeof(client_address));
+		printf("Sent %d of %d bytes.\n", bytes_sent, (int)strlen(buf));
+		if (code == -1)
 		{
-			printf("Reading request...\n");
-			char request[1024];
-			int bytes_received = recv(socket_client, request, 1024, 0);
-			if (bytes_received < 1)
-			{
-				printf("Closing connection...\n");
-				CLOSESOCKET(socket_client);
-				break;
-			}
-			printf("Received %d bytes.\n", bytes_received);
-			printf("%.*s", bytes_received, request);
-
-			char args[20][20];
-			split_str(request, ",", args);
-
-			int selection = atoi(args[0]);
-
-			char buf[BUFSIZ];
-			memset(buf, 0, sizeof(buf));
-			fflush(stdout);
-			setbuf(stdout, buf);
-			int code = handler(catalog, selection, args);
-			fflush(stdout);
-			setbuf(stdout, NULL);
-
-			int bytes_sent = send(socket_client, buf, strlen(buf), 0);
-			printf("Sent %d of %d bytes.\n", bytes_sent, (int)strlen(buf));
-			if (code == -1)
-			{
-				break;
-			}
+			break;
 		}
-		printf("Closing connection...\n");
-		CLOSESOCKET(socket_client);
 	}
 
 	printf("Closing listening socket...\n");
