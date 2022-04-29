@@ -6,6 +6,8 @@
 #include "util.h"
 #include "handler.h"
 #include "cross_platform_sockets.h"
+#include "slave.h"
+#include <process.h>
 
 void app(struct Catalog *catalog)
 {
@@ -47,40 +49,28 @@ void app(struct Catalog *catalog)
 	freeaddrinfo(bind_address);
 	// no need to call listen() or accept() for UDP
 
+	fd_set master;
+	FD_ZERO(&master);
+	FD_SET(socket_listen, &master);
+	SOCKET max_socket = socket_listen;
+	printf("Waiting for connections...\n");
+
 	while (1)
 	{
-		printf("Waiting to receive...\n");
+
 		struct sockaddr_storage client_address;
 		socklen_t client_len = sizeof(client_address);
-		char request[1024];
-		int bytes_received = recvfrom(socket_listen, request, 1024, 0, (struct sockaddr *)&client_address, &client_len);
+		struct SlaveArgs *slaveArgs = (struct SlaveArgs *)malloc(sizeof(struct SlaveArgs));
+		int bytes_received = recvfrom(socket_listen, slaveArgs->request, 1024, 0, (struct sockaddr *)&client_address, &client_len);
 
 		printf("Received %d bytes.\n", bytes_received);
-		printf("%.*s", bytes_received, request);
-
-		printf("Remote address is: ");
-		char address_buffer[100];
-		char service_buffer[100];
-		getnameinfo(((struct sockaddr *)&client_address), client_len, address_buffer, sizeof(address_buffer), service_buffer, sizeof(service_buffer), NI_NUMERICHOST | NI_NUMERICSERV);
-		printf("%s %s\n", address_buffer, service_buffer);
-
-		char args[20][20];
-		split_str(request, ",", args);
-
-		int selection = atoi(args[0]);
-
-		char buf[BUFSIZ];
-		memset(buf, 0, sizeof(buf));
-		fflush(stdout);
-		setbuf(stdout, buf);
-		int code = handler(catalog, selection, args);
-		fflush(stdout);
-		setbuf(stdout, NULL);
-
-		int bytes_sent = sendto(socket_listen, buf, (int)strlen(buf), 0, (const struct sockaddr *)&client_address, sizeof(client_address));
-		printf("Sent %d of %d bytes.\n", bytes_sent, (int)strlen(buf));
-		if (code == -1)
+		printf("%.*s", bytes_received, slaveArgs->request);
+		slaveArgs->catalog = catalog;
+		slaveArgs->client_address = client_address;
+		slaveArgs->socket_listen = socket_listen;
+		if (_beginthread((void (*)(void *))slave, 16536, (void *)slaveArgs) < 0)
 		{
+			printf("Error spawning thread.\n");
 			break;
 		}
 	}
