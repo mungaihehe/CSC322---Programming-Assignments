@@ -1,9 +1,8 @@
 # CSC 322 - Online Shopping
 
-## Assignment 3
+## Assignment 3 - Iterative Connection-Oriented (TCP) Server
 
-Task: Develop a connection oriented client/server application with an Iterative server. Different machines
-
-- [x] Connection-Oriented
-- [x] Iterative
-- [x] Different Machines
+- [x] displayCatalog()
+- [x] searchForItem()
+- [x] purchaseItem()
+- [x] payForItem()
