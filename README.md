@@ -1,9 +1,15 @@
-# CSC 322 - Online Shopping
+# CSC 322 - Online Shopping 
+## Assignment: 5 - Concurrent Connection-Oriented (THREADS)
 
-## Assignment 3
+## How to build
+### Server
+`gcc main.c -o main.exe -lws2_32`
+### Client
+`gcc client.c -o client.exe -lws2_32`
 
-Task: Develop a connection oriented client/server application with an Iterative server. Different machines
+## How to run
+### Server
+`main.exe`
 
-- [x] Connection-Oriented
-- [x] Iterative
-- [x] Different Machines
+### Client(s)
+`client.exe 127.0.0.1 8080`
