@@ -1,6 +1,6 @@
 # CSC 322 - Online Shopping
 
-## Instructions
+## Assignment 1
 
 Make an online shopping application (Books, Bikes) that provides the following services:
 
