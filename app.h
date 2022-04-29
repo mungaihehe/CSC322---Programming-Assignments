@@ -24,7 +24,7 @@ void app(struct Catalog *catalog)
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 	struct addrinfo *bind_address;
 	getaddrinfo(0, "8080", &hints, &bind_address);
@@ -47,27 +47,28 @@ void app(struct Catalog *catalog)
 		return;
 	}
 	freeaddrinfo(bind_address);
-	// no need to call listen() or accept() for UDP
 
-	fd_set master;
-	FD_ZERO(&master);
-	FD_SET(socket_listen, &master);
-	SOCKET max_socket = socket_listen;
-	printf("Waiting for connections...\n");
+	printf("Listening...\n");
+	if (listen(socket_listen, 10) < 0)
+	{
+		fprintf(stderr, "listen() failed. (%d)\n", GETSOCKETERRNO());
+		return;
+	}
 
 	while (1)
 	{
+		printf("Waiting for connections...\n");
 
 		struct sockaddr_storage client_address;
-		socklen_t client_len = sizeof(client_address);
-		struct SlaveArgs *slaveArgs = (struct SlaveArgs *)malloc(sizeof(struct SlaveArgs));
-		int bytes_received = recvfrom(socket_listen, slaveArgs->request, 1024, 0, (struct sockaddr *)&client_address, &client_len);
+		int client_len = sizeof(client_address);
 
-		printf("Received %d bytes.\n", bytes_received);
-		printf("%.*s", bytes_received, slaveArgs->request);
+		SOCKET socket_client = accept(socket_listen, (struct sockaddr *)&client_address, &client_len);
+		printf("Client connected...\n");
+		struct SlaveArgs *slaveArgs = (struct SlaveArgs *)malloc(sizeof(struct SlaveArgs));
 		slaveArgs->catalog = catalog;
-		slaveArgs->client_address = client_address;
 		slaveArgs->socket_listen = socket_listen;
+		slaveArgs->socket_client = socket_client;
+		slaveArgs->client_address = client_address;
 		if (_beginthread((void (*)(void *))slave, 16536, (void *)slaveArgs) < 0)
 		{
 			printf("Error spawning thread.\n");

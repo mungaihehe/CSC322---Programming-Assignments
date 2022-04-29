@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	printf("Configuring remote address...\n");
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_socktype = SOCK_STREAM;
 	struct addrinfo *peer_address;
 	if (getaddrinfo(argv[1], argv[2], &hints, &peer_address))
 	{
@@ -57,8 +57,14 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "socket() failed. (%d)\n", GETSOCKETERRNO());
 		return 1;
 	}
+	printf("Connecting...\n");
+	if (connect(socket_peer,
+				peer_address->ai_addr, peer_address->ai_addrlen))
+	{
+		fprintf(stderr, "connect() failed. (%d)\n", GETSOCKETERRNO());
+		return 1;
+	}
 
-	// no need to call connect() for UDP
 	freeaddrinfo(peer_address);
 
 	displayHandlerOptions();
@@ -81,7 +87,13 @@ int main(int argc, char *argv[])
 		if (FD_ISSET(socket_peer, &reads))
 		{
 			char read[1024];
-			int bytes_received = recvfrom(socket_peer, read, 1024, 0, peer_address->ai_addr, (int *)&peer_address->ai_addrlen);
+			int bytes_received = recv(socket_peer, read, 1024, 0);
+
+			if (bytes_received < 1)
+			{
+				printf("Connection closed by peer.\n");
+				break;
+			}
 
 			printf("Received (%d bytes): %.*s\n",
 				   bytes_received, bytes_received, read);
@@ -97,7 +109,7 @@ int main(int argc, char *argv[])
 			if (!fgets(read, 1024, stdin))
 				break;
 			printf("Sending: %s", read);
-			int bytes_sent = sendto(socket_peer, read, 1024, 0, peer_address->ai_addr, (int)peer_address->ai_addrlen);
+			int bytes_sent = send(socket_peer, read, strlen(read), 0);
 			printf("Sent %d bytes.\n", bytes_sent);
 		}
 	}
